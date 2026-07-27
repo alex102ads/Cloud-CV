@@ -15,6 +15,9 @@ NC='\033[0m' # No Color
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 FRONTEND_DIR="$PROJECT_ROOT/frontend"
+LOCALSTACK_IMAGE="${LOCALSTACK_IMAGE:-localstack/localstack:4.14.0}"
+LOCALSTACK_SERVICES="${LOCALSTACK_SERVICES:-s3,dynamodb}"
+LOCALSTACK_ENABLE_DOCKER="${LOCALSTACK_ENABLE_DOCKER:-0}"
 
 # Default values
 ACTION="start"
@@ -65,7 +68,7 @@ EOF
 check_dependencies() {
     log "Checking dependencies..."
     
-    local deps=("docker" "aws")
+    local deps=("docker" "aws" "curl")
     local missing=()
     
     for dep in "${deps[@]}"; do
@@ -81,8 +84,21 @@ check_dependencies() {
     success "All dependencies found"
 }
 
+get_docker_socket_path() {
+    local docker_host
+    docker_host="${DOCKER_HOST:-$(docker context inspect "$(docker context show)" --format '{{ (index .Endpoints "docker").Host }}' 2>/dev/null || true)}"
+    
+    if [[ "$docker_host" =~ ^unix://(.+)$ ]]; then
+        echo "${BASH_REMATCH[1]}"
+    fi
+}
+
 start_localstack() {
     log "Starting LocalStack..."
+    
+    local docker_socket
+    local docker_run_args=()
+    local -a docker_cmd
     
     # Check if LocalStack is already running
     if docker ps --format "table {{.Names}}" | grep -q "^localstack$"; then
@@ -96,15 +112,34 @@ start_localstack() {
         docker rm -f localstack 2>/dev/null || true
     fi
     
+    if [ "$LOCALSTACK_ENABLE_DOCKER" = "1" ]; then
+        docker_socket="$(get_docker_socket_path)"
+        
+        if [ -n "$docker_socket" ] && [ -S "$docker_socket" ]; then
+            docker_run_args+=("-v" "$docker_socket:/var/run/docker.sock")
+            docker_run_args+=("-e" "DOCKER_HOST=unix:///var/run/docker.sock")
+        else
+            warning "Docker socket could not be detected; continuing without Lambda container support"
+        fi
+    fi
+    
+    docker_cmd=(
+        docker run -d
+        --name localstack
+        -p 4566:4566
+        -p 4510-4559:4510-4559
+        -e SERVICES="$LOCALSTACK_SERVICES"
+        -e DEBUG=1
+    )
+    
+    if [ ${#docker_run_args[@]} -gt 0 ]; then
+        docker_cmd+=("${docker_run_args[@]}")
+    fi
+    
+    docker_cmd+=("$LOCALSTACK_IMAGE")
+    
     # Start LocalStack container
-    docker run -d \
-        --name localstack \
-        -p 4566:4566 \
-        -p 4510-4559:4510-4559 \
-        -e SERVICES=s3,dynamodb,lambda,apigateway,iam,cloudformation,sts \
-        -e DEBUG=1 \
-        -e DOCKER_HOST=unix:///var/run/docker.sock \
-        localstack/localstack:latest
+    "${docker_cmd[@]}"
     
     # Wait for LocalStack to be ready
     log "Waiting for LocalStack to be ready..."
