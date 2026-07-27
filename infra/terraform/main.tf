@@ -109,8 +109,7 @@ resource "aws_s3_bucket_server_side_encryption_configuration" "website" {
 
 # S3 Bucket public access block
 resource "aws_s3_bucket_public_access_block" "website" {
-  bucket = aws_s3_bucket.website.id
-
+  bucket                  = aws_s3_bucket.website.id
   block_public_acls       = true
   block_public_policy     = true
   ignore_public_acls      = true
