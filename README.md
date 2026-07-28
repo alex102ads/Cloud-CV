@@ -139,12 +139,18 @@ jobs:
 - `AWS_ACCESS_KEY_ID`
 - `AWS_SECRET_ACCESS_KEY`
 
-## 👨‍💻 Author
+## My implementation
 
-**SRE/DevOps Engineer** with 12+ years of experience
-- Website: [l4linux.com](https://l4linux.com)
-- LinkedIn: [https://www.linkedin.com/in/lekshmin](https://www.linkedin.com/in/lekshmin)
-- GitHub: [https://github.com/Lforlinux](https://github.com/Lforlinux)
+This online CV was adapted from Lforlinux/Cloud-CV and reworked for my own
+portfolio.
+
+My changes include:
+
+- Rebuilt the CV content and frontend presentation
+- Updated the Terraform configuration for my AWS environment
+- Modified the GitHub Actions deployment workflow
+- Improved responsive design and accessibility
+- Added my own domain, CloudFront configuration, and CV assets
 
 ---
 
